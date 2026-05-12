@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>极速图片压缩转码工具</title>
+    <!-- 引入专门解决苹果 HEIC 格式的解码库 -->
+    <script src="https://cdn.jsdelivr.net/npm/heic-to@1.4.2/dist/iife/heic-to.js"></script>
     <!-- 引入压缩核心库 -->
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
     <style>
@@ -40,14 +42,15 @@
 
 <div class="container">
     <h1>图片转码压缩</h1>
-    <p>转为 JPG · 限制 2MB · 批量处理 · 纯本地</p>
+    <p>转为 JPG · 限 2MB · 支持 HEIC · 批量处理 · 纯本地</p>
     
     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
         <span style="font-size: 40px;">📸</span>
         <p style="margin: 10px 0;">点击或拖拽图片到这里</p>
         <button class="btn">选择文件</button>
     </div>
-    <input type="file" id="fileInput" accept="image/*" multiple>
+    <!-- 允许接收任何图片格式（包括HEIC） -->
+    <input type="file" id="fileInput" accept="image/*, .heic, .HEIC, .heif, .HEIF" multiple>
 
     <div id="resultList"></div>
 </div>
@@ -67,46 +70,72 @@
             item.innerHTML = `
                 <div class="info">
                     <div class="name">${file.name}</div>
-                    <div class="status">处理中...</div>
+                    <div class="status">排队中...</div>
                 </div>
             `;
             resultList.prepend(item);
 
             try {
-                // 2. 压缩配置
+                let targetFile = file;
+
+                // 2. 检测是否为 HEIC/HEIF 格式
+                const isHeic = file.name.toLowerCase().endsWith('.heic') || 
+                               file.name.toLowerCase().endsWith('.heif') || 
+                               (typeof HeicTo !== 'undefined' && await HeicTo.isHeic(file));
+                
+                if (isHeic) {
+                    item.querySelector('.status').innerText = '正在转换苹果 HEIC 格式 (首次加载可能需要5-10秒)...';
+                    item.querySelector('.status').style.color = '#FF9500';
+                    
+                    // 转换为标准 JPEG Blob
+                    const jpegBlob = await HeicTo({ 
+                        blob: file, 
+                        type: "image/jpeg",
+                        quality: 0.9 
+                    });
+                    
+                    // 将 Blob 转为 File 对象以便后续进一步压缩
+                    const newName = file.name.replace(/\.(heic|HEIC|heif|HEIF)$/, '') + '.jpg';
+                    targetFile = new File([jpegBlob], newName, { type: 'image/jpeg' });
+                }
+
+                item.querySelector('.status').innerText = '正在无损压缩中...';
+                item.querySelector('.status').style.color = '#007AFF';
+
+                // 3. 压缩配置
                 const options = {
                     maxSizeMB: 2,           // 目标最大 2MB
-                    maxWidthOrHeight: 4096, // 保持高分辨率
-                    useWebWorker: true,     // 开启多线程防止UI卡死
+                    maxWidthOrHeight: 4096, // 保持超清画质
+                    useWebWorker: true,     // 开启多线程防止手机卡顿
                     fileType: 'image/jpeg', // 强制转码为 JPG
                     initialQuality: 0.8     // 初始质量
                 };
 
-                // 3. 执行压缩
-                const compressedFile = await imageCompression(file, options);
+                // 4. 执行压缩
+                const compressedFile = await imageCompression(targetFile, options);
                 
-                // 4. 更新UI为下载链接
+                // 5. 更新UI为下载链接
                 const url = URL.createObjectURL(compressedFile);
                 const sizeKB = (compressedFile.size / 1024).toFixed(0);
                 const sizeDisplay = sizeKB > 1024 ? (sizeKB/1024).toFixed(2) + ' MB' : sizeKB + ' KB';
                 
-                item.querySelector('.status').innerHTML = `完成 (目标: <2MB, 实际: ${sizeDisplay})`;
+                item.querySelector('.status').innerHTML = `转换成功 (实际大小: ${sizeDisplay})`;
                 item.querySelector('.status').style.color = '#34C759';
                 
                 const dl = document.createElement('a');
                 dl.className = 'download-link';
                 dl.href = url;
-                dl.download = `compressed_${file.name.split('.')[0]}.jpg`;
+                dl.download = `compressed_${targetFile.name}`;
                 dl.innerText = '保存图片';
                 item.appendChild(dl);
 
             } catch (error) {
                 console.error(error);
-                item.querySelector('.status').innerText = '处理失败';
+                item.querySelector('.status').innerText = '处理失败: ' + (error.message || '格式无法解析');
                 item.querySelector('.status').style.color = '#FF3B30';
             }
         }
-        // 处理完清空输入框，方便下次选择
+        // 处理完清空输入框
         fileInput.value = '';
     };
 </script>
