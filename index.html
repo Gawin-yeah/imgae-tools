@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>极速图片压缩转码工具 v2</title>
-    <!-- 引入压缩库和HEIC转换库 -->
+    <title>全格式图片压缩转码 (支持HEIC)</title>
+    <!-- 引入核心库：压缩库 + HEIC解码库 -->
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
     <style>
@@ -16,29 +16,29 @@
         .upload-area { border: 2px dashed #d1d1d6; border-radius: 15px; padding: 40px 20px; text-align: center; cursor: pointer; transition: 0.3s; margin-bottom: 20px;}
         .upload-area:hover { border-color: var(--primary); background: #f0f7ff; }
         #fileInput { display: none; }
-        .btn { background: var(--primary); color: white; padding: 12px 25px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; width: 100%; font-size: 16px; }
+        .btn { background: var(--primary); color: white; padding: 14px 25px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; width: 100%; font-size: 16px; }
         #resultList { width: 100%; }
         .item { background: #fafafa; border-radius: 12px; padding: 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #efeff4; }
-        .info { flex: 1; margin-right: 10px; min-width: 0; }
-        .name { font-size: 14px; color: #3a3a3c; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .info { flex: 1; margin-right: 10px; overflow: hidden; }
+        .name { font-size: 14px; color: #3a3a3c; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .status { font-size: 12px; color: #8e8e93; margin-top: 4px; }
-        .download-link { color: var(--primary); text-decoration: none; font-weight: 600; font-size: 14px; border: 1px solid var(--primary); padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
-        .loading-spin { display: inline-block; width: 12px; height: 12px; border: 2px solid #ddd; border-top: 2px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 5px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .download-link { color: var(--primary); text-decoration: none; font-weight: 600; font-size: 14px; border: 1px solid var(--primary); padding: 6px 14px; border-radius: 8px; white-space: nowrap; }
+        .loading-icon { display: inline-block; width: 12px; height: 12px; border: 2px solid #ccc; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 5px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>图片转码压缩</h1>
-    <p>支持 HEIC/JPG/PNG · 限制 2MB · 纯本地</p>
+    <h1>图片全格式转换压缩</h1>
+    <p>支持 iPhone HEIC · 转为 JPG · 限制 2MB</p>
     
     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
         <span style="font-size: 40px;">📸</span>
-        <p style="margin: 10px 0;">点击此处批量选择图片<br><small>(支持 iPhone HEIC 格式)</small></p>
+        <p style="margin: 10px 0; color: #666;">点击选择或多选图片<br>(支持 HEIC/PNG/JPG)</p>
         <button class="btn">选择文件</button>
     </div>
-    <input type="file" id="fileInput" accept="image/*,.heic,.HEIC" multiple>
+    <input type="file" id="fileInput" accept="image/*,image/heic,image/heif" multiple>
 
     <div id="resultList"></div>
 </div>
@@ -51,64 +51,63 @@
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        for (let file of files) {
-            // 创建展示条目
+        for (const file of files) {
+            // 创建UI
             const item = document.createElement('div');
             item.className = 'item';
             item.innerHTML = `
                 <div class="info">
                     <div class="name">${file.name}</div>
-                    <div class="status"><span class="loading-spin"></span>准备处理...</div>
+                    <div class="status"><span class="loading-icon"></span>正在准备...</div>
                 </div>
             `;
             resultList.prepend(item);
+            const statusText = item.querySelector('.status');
 
             try {
-                let fileToCompress = file;
+                let fileToProcess = file;
 
-                // --- 特殊处理 HEIC ---
+                // --- 步骤 1: 处理 HEIC 格式 ---
                 if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
-                    item.querySelector('.status').innerHTML = `<span class="loading-spin"></span>正在解码 HEIC (可能较慢)...`;
+                    statusText.innerHTML = `<span class="loading-icon"></span>正在解码 HEIC (可能较慢)...`;
                     const blob = await heic2any({
                         blob: file,
                         toType: "image/jpeg",
                         quality: 0.8
                     });
                     // heic2any 可能返回数组，取第一个
-                    fileToCompress = Array.isArray(blob) ? blob[0] : blob;
+                    fileToProcess = Array.isArray(blob) ? blob[0] : blob;
                 }
 
-                // --- 开始压缩 ---
-                item.querySelector('.status').innerHTML = `<span class="loading-spin"></span>正在压缩并转码...`;
-                
+                // --- 步骤 2: 压缩并转码 ---
+                statusText.innerHTML = `<span class="loading-icon"></span>正在压缩至 2MB...`;
                 const options = {
                     maxSizeMB: 2,
-                    maxWidthOrHeight: 4096,
+                    maxWidthOrHeight: 4000,
                     useWebWorker: true,
-                    fileType: 'image/jpeg',
-                    initialQuality: 0.8
+                    fileType: 'image/jpeg'
                 };
 
-                const compressedFile = await imageCompression(fileToCompress, options);
+                const compressedFile = await imageCompression(fileToProcess, options);
                 
-                // --- 完成处理 ---
+                // --- 步骤 3: 产出结果 ---
                 const url = URL.createObjectURL(compressedFile);
                 const sizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
                 
-                item.querySelector('.status').innerHTML = `完成 (大小: ${sizeMB} MB)`;
-                item.querySelector('.status').style.color = '#34C759';
+                statusText.innerHTML = `处理完成 (大小: ${sizeMB} MB)`;
+                statusText.style.color = '#34C759';
                 
                 const dl = document.createElement('a');
                 dl.className = 'download-link';
                 dl.href = url;
                 dl.download = `compressed_${file.name.replace(/\.[^/.]+$/, "")}.jpg`;
-                dl.innerText = '保存图片';
+                dl.innerText = '保存 JPG';
                 item.appendChild(dl);
 
             } catch (error) {
                 console.error(error);
-                item.querySelector('.status').innerText = '处理失败: ' + (error.message || '格式不支持');
-                item.querySelector('.status').style.color = '#FF3B30';
+                statusText.innerText = '处理失败，请重试';
+                statusText.style.color = '#FF3B30';
             }
         }
         fileInput.value = '';
