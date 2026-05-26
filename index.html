@@ -3,45 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>图片批量压缩转码</title>
+    <title>图片专业压缩转码工具</title>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
     <style>
         :root { --primary: #007AFF; --success: #34C759; --bg: #F2F2F7; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
         .container { max-width: 600px; width: 100%; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); box-sizing: border-box; }
-        h1 { font-size: 20px; text-align: center; color: #1c1c1e; margin: 10px 0; }
+        h1 { font-size: 20px; text-align: center; color: #1c1c1e; margin: 10px 0 5px 0; }
         .subtitle { text-align: center; color: #8e8e93; font-size: 13px; margin-bottom: 20px; }
         
-        /* 按钮样式 */
-        .btn { border: none; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+        /* 压缩设置 */
+        .settings-card { background: #f8f8fa; border-radius: 12px; padding: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #eee; }
+        .settings-card label { font-size: 14px; font-weight: 600; color: #3a3a3c; }
+        .settings-card select { background: white; border: 1px solid #ddd; padding: 6px 10px; border-radius: 8px; font-size: 14px; color: var(--primary); outline: none; }
+
+        /* 按钮基础 */
+        .btn { border: none; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
         .btn:active { opacity: 0.7; transform: scale(0.98); }
-        .btn-select { background: var(--primary); color: white; width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; margin-bottom: 10px; }
-        .btn-download-all { background: var(--success); color: white; width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; margin-bottom: 15px; display: none; }
         
-        .upload-area { border: 2px dashed #d1d1d6; border-radius: 15px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; background: #fafafa; }
+        /* 顶部大按钮 */
+        .btn-download-all { background: var(--success); color: white; width: 100%; padding: 14px; border-radius: 12px; font-size: 16px; margin-bottom: 15px; display: none; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2); }
+        
+        .upload-area { border: 2px dashed #d1d1d6; border-radius: 15px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; background: #fff; }
         
         /* 列表项 */
         #resultList { width: 100%; }
-        .item { background: #fff; border: 1px solid #efeff4; border-radius: 12px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; }
-        .preview-img { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; margin-right: 12px; background: #eee; }
-        .info { flex: 1; min-width: 0; }
-        .name { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .status { font-size: 11px; color: #8e8e93; margin-top: 2px; }
+        .item { background: #fff; border: 1px solid #efeff4; border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .preview-img { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; margin-right: 12px; background: #eee; flex-shrink: 0; }
+        .info { flex: 1; min-width: 0; margin-right: 10px; }
+        .name { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+        .status { font-size: 11px; color: #8e8e93; margin-top: 3px; }
         
-        /* 进度动画 */
+        /* 单个下载按钮 */
+        .btn-single-save { background: #fff; color: var(--primary); border: 1.5px solid var(--primary); padding: 6px 12px; border-radius: 8px; font-size: 13px; display: none; }
+        
+        /* 动画 */
         .loading-icon { display: inline-block; width: 10px; height: 10px; border: 2px solid #ccc; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 5px; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* 底部提示 */
-        .notice { font-size: 12px; color: #ff9500; background: #fff9e6; padding: 10px; border-radius: 10px; margin-top: 10px; display: none; border: 1px solid #ffeeba; }
+        .notice { font-size: 11px; color: #ff9500; background: #fff9e6; padding: 8px; border-radius: 8px; margin-top: 10px; display: none; border: 1px solid #ffeeba; text-align: center; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>图片转换压缩</h1>
-    <div class="subtitle">强制 JPG · 2MB限制 · 不限数量</div>
+    <div class="subtitle">支持 HEIC · 批量处理 · 逐个/一键保存</div>
+
+    <!-- 压缩大小设置 -->
+    <div class="settings-card">
+        <label>目标大小限制：</label>
+        <select id="sizeLimit">
+            <option value="0.5">0.5 MB</option>
+            <option value="0.8" selected>0.8 MB</option>
+            <option value="1">1.0 MB</option>
+            <option value="2">2.0 MB</option>
+            <option value="5">5.0 MB</option>
+        </select>
+    </div>
     
     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
         <span style="font-size: 30px;">📸</span>
@@ -49,11 +69,11 @@
     </div>
     <input type="file" id="fileInput" accept="image/*,image/heic,image/heif" multiple style="display:none">
 
-    <!-- 一键下载全部按钮 -->
-    <button id="downloadAllBtn" class="btn btn-download-all">一键保存全部图片到本地</button>
+    <!-- 一键全部下载 -->
+    <button id="downloadAllBtn" class="btn btn-download-all">一键保存全部</button>
     
     <div id="multiNotice" class="notice">
-        💡 提示：如果浏览器弹出“允许下载多个文件”，请点击<b>“允许”</b>，否则只能下载第一张。
+        💡 如果弹出窗口，请点击“允许下载多个文件”
     </div>
 
     <div id="resultList"></div>
@@ -64,17 +84,19 @@
     const resultList = document.getElementById('resultList');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
     const multiNotice = document.getElementById('multiNotice');
+    const sizeLimitSelect = document.getElementById('sizeLimit');
     
-    let readyLinks = []; // 存储所有处理好的下载链接
+    let readyLinks = []; 
 
     fileInput.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        // 重置状态
-        readyLinks = [];
-        downloadAllBtn.style.display = 'none';
-        multiNotice.style.display = 'none';
+        const targetSizeMB = parseFloat(sizeLimitSelect.value);
+        
+        // 注意：不重置 readyLinks 可以在多次上传后合并下载，
+        // 如果想每次上传都清空，取消下面这行注释：
+        // readyLinks = []; resultList.innerHTML = ''; 
 
         for (const file of files) {
             const item = document.createElement('div');
@@ -83,13 +105,15 @@
                 <img class="preview-img" src="">
                 <div class="info">
                     <div class="name">${file.name}</div>
-                    <div class="status"><span class="loading-icon"></span>正在排队...</div>
+                    <div class="status"><span class="loading-icon"></span>等待中...</div>
                 </div>
+                <a class="btn btn-single-save">保存</a>
             `;
             resultList.prepend(item);
             
             const statusText = item.querySelector('.status');
             const previewImg = item.querySelector('.preview-img');
+            const singleBtn = item.querySelector('.btn-single-save');
 
             try {
                 let fileToProcess = file;
@@ -102,28 +126,31 @@
                 }
 
                 // 2. 压缩
-                statusText.innerHTML = `<span class="loading-icon"></span>压缩中...`;
+                statusText.innerHTML = `<span class="loading-icon"></span>压缩至 ${targetSizeMB}MB...`;
                 const options = {
-                    maxSizeMB: 2,
-                    maxWidthOrHeight: 4000,
+                    maxSizeMB: targetSizeMB,
+                    maxWidthOrHeight: 4096,
                     useWebWorker: true,
                     fileType: 'image/jpeg'
                 };
                 const compressedBlob = await imageCompression(fileToProcess, options);
                 
-                // 3. 生成链接
+                // 3. 生成结果
                 const url = URL.createObjectURL(compressedBlob);
                 const finalName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
-                
-                // 保存到数组供一键下载
                 readyLinks.push({ url, name: finalName });
 
-                // 4. 更新UI
+                // 4. 更新单图UI
                 previewImg.src = url;
-                statusText.innerHTML = `✅ 处理成功 (${(compressedBlob.size/1024/1024).toFixed(2)}MB)`;
+                statusText.innerHTML = `✅ ${(compressedBlob.size/1024/1024).toFixed(2)}MB`;
                 statusText.style.color = '#34C759';
+                
+                // 设置单张下载按钮
+                singleBtn.href = url;
+                singleBtn.download = finalName;
+                singleBtn.style.display = 'block';
 
-                // 显示一键下载按钮
+                // 显示一键下载大按钮
                 if (readyLinks.length > 0) {
                     downloadAllBtn.style.display = 'flex';
                     if (readyLinks.length > 1) multiNotice.style.display = 'block';
@@ -134,14 +161,12 @@
                 statusText.style.color = '#FF3B30';
             }
         }
+        fileInput.value = '';
     };
 
-    // 一键下载的核心逻辑
+    // 一键保存逻辑
     downloadAllBtn.onclick = () => {
-        if (readyLinks.length === 0) return;
-        
         readyLinks.forEach((item, index) => {
-            // 使用 setTimeout 错开下载时间，防止浏览器瞬间拦截
             setTimeout(() => {
                 const a = document.createElement('a');
                 a.href = item.url;
@@ -149,7 +174,7 @@
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-            }, index * 300); // 每张图间隔0.3秒触发
+            }, index * 400); 
         });
     };
 </script>
