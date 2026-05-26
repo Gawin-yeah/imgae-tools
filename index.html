@@ -2,43 +2,59 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全格式图片压缩转码 (支持HEIC)</title>
-    <!-- 引入核心库：压缩库 + HEIC解码库 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>图片批量压缩转码</title>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
     <style>
-        :root { --primary: #007AFF; --bg: #F2F2F7; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { max-width: 600px; width: 100%; background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        h1 { font-size: 24px; text-align: center; color: #1c1c1e; margin-bottom: 10px; }
-        p { text-align: center; color: #8e8e93; font-size: 14px; margin-bottom: 25px; }
-        .upload-area { border: 2px dashed #d1d1d6; border-radius: 15px; padding: 40px 20px; text-align: center; cursor: pointer; transition: 0.3s; margin-bottom: 20px;}
-        .upload-area:hover { border-color: var(--primary); background: #f0f7ff; }
-        #fileInput { display: none; }
-        .btn { background: var(--primary); color: white; padding: 14px 25px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; width: 100%; font-size: 16px; }
+        :root { --primary: #007AFF; --success: #34C759; --bg: #F2F2F7; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .container { max-width: 600px; width: 100%; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); box-sizing: border-box; }
+        h1 { font-size: 20px; text-align: center; color: #1c1c1e; margin: 10px 0; }
+        .subtitle { text-align: center; color: #8e8e93; font-size: 13px; margin-bottom: 20px; }
+        
+        /* 按钮样式 */
+        .btn { border: none; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+        .btn:active { opacity: 0.7; transform: scale(0.98); }
+        .btn-select { background: var(--primary); color: white; width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; margin-bottom: 10px; }
+        .btn-download-all { background: var(--success); color: white; width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; margin-bottom: 15px; display: none; }
+        
+        .upload-area { border: 2px dashed #d1d1d6; border-radius: 15px; padding: 20px; text-align: center; cursor: pointer; margin-bottom: 15px; background: #fafafa; }
+        
+        /* 列表项 */
         #resultList { width: 100%; }
-        .item { background: #fafafa; border-radius: 12px; padding: 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #efeff4; }
-        .info { flex: 1; margin-right: 10px; overflow: hidden; }
-        .name { font-size: 14px; color: #3a3a3c; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .status { font-size: 12px; color: #8e8e93; margin-top: 4px; }
-        .download-link { color: var(--primary); text-decoration: none; font-weight: 600; font-size: 14px; border: 1px solid var(--primary); padding: 6px 14px; border-radius: 8px; white-space: nowrap; }
-        .loading-icon { display: inline-block; width: 12px; height: 12px; border: 2px solid #ccc; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 5px; }
+        .item { background: #fff; border: 1px solid #efeff4; border-radius: 12px; padding: 10px; margin-bottom: 8px; display: flex; align-items: center; }
+        .preview-img { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; margin-right: 12px; background: #eee; }
+        .info { flex: 1; min-width: 0; }
+        .name { font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .status { font-size: 11px; color: #8e8e93; margin-top: 2px; }
+        
+        /* 进度动画 */
+        .loading-icon { display: inline-block; width: 10px; height: 10px; border: 2px solid #ccc; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-right: 5px; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 底部提示 */
+        .notice { font-size: 12px; color: #ff9500; background: #fff9e6; padding: 10px; border-radius: 10px; margin-top: 10px; display: none; border: 1px solid #ffeeba; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>图片全格式转换压缩</h1>
-    <p>支持 iPhone HEIC · 转为 JPG · 限制 2MB</p>
+    <h1>图片转换压缩</h1>
+    <div class="subtitle">强制 JPG · 2MB限制 · 不限数量</div>
     
     <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-        <span style="font-size: 40px;">📸</span>
-        <p style="margin: 10px 0; color: #666;">点击选择或多选图片<br>(支持 HEIC/PNG/JPG)</p>
-        <button class="btn">选择文件</button>
+        <span style="font-size: 30px;">📸</span>
+        <p style="margin: 5px 0; color: #666; font-size: 14px;">点击批量选择图片</p>
     </div>
-    <input type="file" id="fileInput" accept="image/*,image/heic,image/heif" multiple>
+    <input type="file" id="fileInput" accept="image/*,image/heic,image/heif" multiple style="display:none">
+
+    <!-- 一键下载全部按钮 -->
+    <button id="downloadAllBtn" class="btn btn-download-all">一键保存全部图片到本地</button>
+    
+    <div id="multiNotice" class="notice">
+        💡 提示：如果浏览器弹出“允许下载多个文件”，请点击<b>“允许”</b>，否则只能下载第一张。
+    </div>
 
     <div id="resultList"></div>
 </div>
@@ -46,71 +62,95 @@
 <script>
     const fileInput = document.getElementById('fileInput');
     const resultList = document.getElementById('resultList');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const multiNotice = document.getElementById('multiNotice');
+    
+    let readyLinks = []; // 存储所有处理好的下载链接
 
     fileInput.onchange = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
+        // 重置状态
+        readyLinks = [];
+        downloadAllBtn.style.display = 'none';
+        multiNotice.style.display = 'none';
+
         for (const file of files) {
-            // 创建UI
             const item = document.createElement('div');
             item.className = 'item';
             item.innerHTML = `
+                <img class="preview-img" src="">
                 <div class="info">
                     <div class="name">${file.name}</div>
-                    <div class="status"><span class="loading-icon"></span>正在准备...</div>
+                    <div class="status"><span class="loading-icon"></span>正在排队...</div>
                 </div>
             `;
             resultList.prepend(item);
+            
             const statusText = item.querySelector('.status');
+            const previewImg = item.querySelector('.preview-img');
 
             try {
                 let fileToProcess = file;
 
-                // --- 步骤 1: 处理 HEIC 格式 ---
+                // 1. HEIC转码
                 if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic') {
-                    statusText.innerHTML = `<span class="loading-icon"></span>正在解码 HEIC (可能较慢)...`;
-                    const blob = await heic2any({
-                        blob: file,
-                        toType: "image/jpeg",
-                        quality: 0.8
-                    });
-                    // heic2any 可能返回数组，取第一个
+                    statusText.innerHTML = `<span class="loading-icon"></span>HEIC转码中...`;
+                    const blob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.8 });
                     fileToProcess = Array.isArray(blob) ? blob[0] : blob;
                 }
 
-                // --- 步骤 2: 压缩并转码 ---
-                statusText.innerHTML = `<span class="loading-icon"></span>正在压缩至 2MB...`;
+                // 2. 压缩
+                statusText.innerHTML = `<span class="loading-icon"></span>压缩中...`;
                 const options = {
                     maxSizeMB: 2,
                     maxWidthOrHeight: 4000,
                     useWebWorker: true,
                     fileType: 'image/jpeg'
                 };
+                const compressedBlob = await imageCompression(fileToProcess, options);
+                
+                // 3. 生成链接
+                const url = URL.createObjectURL(compressedBlob);
+                const finalName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                
+                // 保存到数组供一键下载
+                readyLinks.push({ url, name: finalName });
 
-                const compressedFile = await imageCompression(fileToProcess, options);
-                
-                // --- 步骤 3: 产出结果 ---
-                const url = URL.createObjectURL(compressedFile);
-                const sizeMB = (compressedFile.size / (1024 * 1024)).toFixed(2);
-                
-                statusText.innerHTML = `处理完成 (大小: ${sizeMB} MB)`;
+                // 4. 更新UI
+                previewImg.src = url;
+                statusText.innerHTML = `✅ 处理成功 (${(compressedBlob.size/1024/1024).toFixed(2)}MB)`;
                 statusText.style.color = '#34C759';
-                
-                const dl = document.createElement('a');
-                dl.className = 'download-link';
-                dl.href = url;
-                dl.download = `compressed_${file.name.replace(/\.[^/.]+$/, "")}.jpg`;
-                dl.innerText = '保存 JPG';
-                item.appendChild(dl);
+
+                // 显示一键下载按钮
+                if (readyLinks.length > 0) {
+                    downloadAllBtn.style.display = 'flex';
+                    if (readyLinks.length > 1) multiNotice.style.display = 'block';
+                }
 
             } catch (error) {
-                console.error(error);
-                statusText.innerText = '处理失败，请重试';
+                statusText.innerText = '❌ 失败';
                 statusText.style.color = '#FF3B30';
             }
         }
-        fileInput.value = '';
+    };
+
+    // 一键下载的核心逻辑
+    downloadAllBtn.onclick = () => {
+        if (readyLinks.length === 0) return;
+        
+        readyLinks.forEach((item, index) => {
+            // 使用 setTimeout 错开下载时间，防止浏览器瞬间拦截
+            setTimeout(() => {
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.download = item.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, index * 300); // 每张图间隔0.3秒触发
+        });
     };
 </script>
 
